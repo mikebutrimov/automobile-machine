@@ -1,3 +1,4 @@
+#define packet_len 11
 #define repeat_threshold 20
 #define cmd_len 8
 #define Clear 0
