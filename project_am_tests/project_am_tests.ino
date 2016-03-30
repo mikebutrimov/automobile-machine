@@ -15,7 +15,7 @@ std::map<int,CAN_COMMAND> can_commands;
 
 void fill_can_commands(){
   /*If our dispatcher receive this CAN_COMMAND, he will clear the queue*/
-  can_commands[Clear]       = (CAN_COMMAND){0,0,0,{0,0,0,0,0,0,0,0},0,0};
+  can_commands[Clear]       = (CAN_COMMAND){253,0,0,{0,0,0,0,0,0,0,0},0,0};
   /*Turn on head unit. must send with 250 ms. interval*/
   can_commands[HeadUnitOn]  = (CAN_COMMAND){1,0x165,4,{200,192,16,0,0,0,0,0},0,250};
   /*Enter and leave menu and control cursor buttons*/
@@ -59,7 +59,7 @@ int create_command (byte* payload, CAN_COMMAND* cmd){
     cmd->delayTime = 0;
     return 1;
   }
-  //return 0;
+  return 0;
 }
 /*----------------------------------------------------*/
 
@@ -140,7 +140,7 @@ int readCmd(byte * payload){
     avail = packet_len;
   }
   
-  if (avail >0){
+  if (avail  == packet_len){
     for (int i = 0; i < avail; i++){
       payload[i] = Serial1.read();  
     }
@@ -149,6 +149,9 @@ int readCmd(byte * payload){
   }
   Serial.flush();
   return 0;
+  while (Serial.available()){
+    Serial1.read();
+  }
 }
 
 
@@ -180,8 +183,12 @@ void loop() {
   byte payload[packet_len];
   if (readCmd(payload) != 0){
     int res = create_command(payload, &cmd);
-    
+    Serial.println("PAYLOAD    ");
+    for (int i = 0; i < 11; i++){
+      Serial.print(String(payload[i]));
+    }
     if (res != 0){
+      Serial.println();
       Serial.println(cmd.address);
       add_can_command(cmd);
     }
