@@ -1,4 +1,5 @@
-#define packet_len 11
+#define packet_len 15
+#define magic_byte 113
 #define repeat_threshold 20
 #define cmd_len 8
 #define Clear 0

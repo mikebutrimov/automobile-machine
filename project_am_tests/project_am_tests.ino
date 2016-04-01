@@ -38,21 +38,21 @@ void fill_can_commands(){
 
 /*create command from payload-typed packet if needed*/
 int create_command (byte* payload, CAN_COMMAND* cmd){
+  Serial.println("DEBUG create_command");
   /*payload is packet_len bytes array from android via uart */
-  /*[command code, address, useful bytes count, byte0,...byte 7]*/
-  byte cmd_code = payload[0];
+  byte cmd_code = payload[1];
   if (cmd_code!= Payload){ 
     *cmd =  can_commands[cmd_code];
     return 1;
   }
   else {
     cmd->count = 1;
-    cmd->address = payload[1];
+    cmd->address = payload[3] << 8 | payload[4];
     cmd->bytes = payload[2];
     for (int i = 0; i < cmd->bytes; i++){
-      cmd->payload[i] = payload[3+i];
+      cmd->payload[i] = payload[5+i];
     }  
-    for (int i = cmd_len - cmd->bytes; i < cmd_len; i++){
+    for (int i = cmd_len - cmd->bytes; i < cmd_len-2; i++){
       cmd->payload[i] = 0; // fill free space with zeros
     }
     cmd->putInTime = 0;
@@ -61,7 +61,6 @@ int create_command (byte* payload, CAN_COMMAND* cmd){
   }
   return 0;
 }
-/*----------------------------------------------------*/
 
 /*add can command to the queue------------------------*/
 void add_can_command(CAN_COMMAND CAN_COMMAND){
@@ -69,7 +68,6 @@ void add_can_command(CAN_COMMAND CAN_COMMAND){
   /*fail enough, we don't have == for structs, but if count and address are equal 0
   then ok, i can hardly believe it is a valid can CAN_COMMAND, not 'Clear' CAN_COMMAND*/
   if (CAN_COMMAND.count == 0 && CAN_COMMAND.address ==  0 && CAN_COMMAND.bytes == 0){
-    
     Serial.println("BLAD! Struct output:");
     Serial.print("count - > ");
     Serial.println(CAN_COMMAND.count);
@@ -130,28 +128,35 @@ void dispatcher(){
 
 /*-----------------------------------------------------*/
 
-int readCmd(byte * payload){
-  for (int i = 0; i < packet_len; i++){
-    payload[i] = 0;
-  }
-  
-  int avail = Serial1.available();
-  if (avail > packet_len){
-    avail = packet_len;
-  }
-  
-  if (avail  == packet_len){
-    for (int i = 0; i < avail; i++){
-      payload[i] = Serial1.read();  
+int read_cmd(byte * payload){
+  int avail =  Serial1.available();
+  if (avail >= packet_len){//ok, enough bytes
+    for (int i = 0; i< packet_len; i++){
+      if (Serial1.read() == magic_byte){
+        //here fun part begins. we read buffer for packet_len - 1 
+        //cos we already have read one byte
+        //trying to find a packet.
+        //if we found the apacket then ok
+        avail =  Serial1.available();
+        if (true){//lol ok for testing  
+          Serial.println("DEBUG read_cmd 4");
+          payload[0] = magic_byte;
+          for (int i = 1; i < packet_len; i++){
+            //read the "apacket"
+            payload[i] = Serial1.read();
+          }
+          //check packet
+          byte code = payload[1];
+          short calculated_crc = payload[0] + payload[1];
+          short recieved_crc = payload[13]<<8 | payload[14];//oxyenno        
+          if (calculated_crc == recieved_crc){
+            return 1;
+          }
+        }
+      }
     }
-  Serial.flush();
-  return 1;
   }
-  Serial.flush();
-  return 0;
-  while (Serial.available()){
-    Serial1.read();
-  }
+  return 0; 
 }
 
 
@@ -181,10 +186,10 @@ void loop() {
   Serial.println("New Loop starts here \n");
   CAN_COMMAND cmd;
   byte payload[packet_len];
-  if (readCmd(payload) != 0){
+  if (read_cmd(payload) != 0){
     int res = create_command(payload, &cmd);
     Serial.println("PAYLOAD    ");
-    for (int i = 0; i < 11; i++){
+    for (int i = 0; i < packet_len; i++){
       Serial.print(String(payload[i]));
     }
     if (res != 0){
@@ -192,13 +197,11 @@ void loop() {
       Serial.println(cmd.address);
       add_can_command(cmd);
     }
-  }
-  
+  } 
   Serial.println(queue.size());
   Serial.println("dispatcher starts");
-  
   dispatcher();
   Serial.println("dispatcher ends");
   Serial.println("New Loop ends here \n");
-  //delay();
+  delay(10);
 }
