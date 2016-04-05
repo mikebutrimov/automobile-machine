@@ -171,7 +171,7 @@ void read_cmd(){
   //read buffer untill it does have bytes
   //or till it lasts 
   byte number_bytes_read = 0;
-  while (/*number_bytes_read<SERIAL_BUFFER_SIZE || */Serial1.available() != 0){
+  while (Serial1.available() != 0){
     read_buffer[number_bytes_read] = Serial1.read();
     number_bytes_read++;
   }
