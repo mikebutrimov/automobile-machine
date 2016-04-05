@@ -153,11 +153,11 @@ void read_cmd(){
     Serial.println("DEBUG 2");
     CAN_COMMAND cmd;
     byte packet[packet_len];
-    for (int i = 0; i< bfr_bytes; i++){
-      packet[i] = bfr_buffer[i];
+    for (int i = 0; i< aft_bytes; i++){
+      packet[i] = aft_buffer[i];
     }
-    for (int i = 0; i< aft_bytes; i ++){
-      packet[i+bfr_bytes] = aft_buffer[i];
+    for (int i = 0; i< bfr_bytes; i ++){
+      packet[i+aft_bytes] = bfr_buffer[i];
     }
     if (create_command(packet,&cmd)!= 0){
       add_can_command(cmd);
