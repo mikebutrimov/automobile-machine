@@ -172,8 +172,12 @@ void read_cmd(){
   //or till it lasts 
   byte number_bytes_read = 0;
   while (Serial1.available() != 0){
+    if (number_bytes_read == SERIAL_BUFFER_SIZE){
+      break;
+    }
     read_buffer[number_bytes_read] = Serial1.read();
     number_bytes_read++;
+    
   }
   Serial.println("DEBUG 3");
   //loop through read_buffer
