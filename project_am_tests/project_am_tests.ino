@@ -7,6 +7,7 @@
 #include <pnew.cpp>
 #include <list>
 #include <map>
+#include <algorithm>
 #include "HardwareSerial.cpp"
 #include "commands.h"
 
@@ -51,29 +52,36 @@ void fill_can_commands(){
 
 /*create command from payload-typed packet if needed*/
 int create_command (byte* payload, CAN_COMMAND* cmd){
-  Serial.println("DEBUG create_command");
+  //Serial.println("DEBUG create_command"); 
   /*payload is packet_len bytes array from android via uart */
+  //check for valid command
   byte cmd_code = payload[1];
-  if (cmd_code!= Payload){ 
-    *cmd =  can_commands[cmd_code];
-    return 1;
-  }
-  else {
-    cmd->count = 1;
-    cmd->address = payload[3] << 8 | payload[4];
-    cmd->bytes = payload[2];
-    for (int i = 0; i < cmd->bytes; i++){
-      cmd->payload[i] = payload[5+i];
-    }  
-    for (int i = cmd_len - cmd->bytes; i < cmd_len-2; i++){
-      cmd->payload[i] = 0; // fill free space with zeros
+  int chk = payload[packet_len-2] << 8 | payload[packet_len-1]; //last 2 bytes 
+  //Serial.println(chk);
+  if (magic_byte + cmd_code == chk){ //sanity check
+    if (cmd_code!= Payload){ 
+      *cmd =  can_commands[cmd_code];
+      return 1;
     }
-    cmd->putInTime = 0;
-    cmd->delayTime = 0;
-    return 1;
+    else {
+      cmd->count = 1;
+      cmd->address = payload[3] << 8 | payload[4];
+      cmd->bytes = payload[2];
+      for (int i = 0; i < cmd->bytes; i++){
+        cmd->payload[i] = payload[5+i];
+      }  
+      for (int i = cmd_len - cmd->bytes; i < cmd_len-2; i++){
+        cmd->payload[i] = 0; // fill free space with zeros
+      }
+      cmd->putInTime = 0;
+      cmd->delayTime = 0;
+      return 1;
+    }
   }
   return 0;
 }
+
+
 
 /*add can command to the queue------------------------*/
 void add_can_command(CAN_COMMAND cmd){
@@ -99,7 +107,9 @@ void add_can_command(CAN_COMMAND cmd){
     queue.clear();
   }
   /*put CAN_COMMAND in queue*/
-    queue.push_back(cmd);
+    if (!(std::find(queue.begin(), queue.end(), cmd) != queue.end())){
+      queue.push_back(cmd);
+    }
 };
 /*-----------------------------------------------------*/
 
@@ -140,8 +150,35 @@ void dispatcher(){
 }
 
 /*-----------------------------------------------------*/
-
 void read_cmd(){
+  //Serial.println("NEW READ 1");
+  byte buffer[packet_len];
+  CAN_COMMAND cmd;
+  buffer[0] = magic_byte;
+
+  if (Serial1.read() == magic_byte){
+    //Serial.println("NEW READ 2");
+    if (Serial1.available() >= packet_len-1){
+      //Serial.println("NEW READ 3");
+      for (int i = 1; i < packet_len; i++){
+        buffer[i] = Serial1.read();
+      }
+      for (int i = 0; i < packet_len; i++){
+        //Serial.print(buffer[i]);
+      }
+      Serial.println();
+      if (create_command(buffer,&cmd)!= 0){
+        //Serial.println("NEW READ 4");
+        add_can_command(cmd);
+      }
+    }
+  }
+}
+
+
+
+
+void read_cmd_old(){
   //reads all input buffer and finds commands
   //for each found command constructs and execs 
   //add_command function.
@@ -175,6 +212,7 @@ void read_cmd(){
     if (number_bytes_read == SERIAL_BUFFER_SIZE){
       break;
     }
+    
     read_buffer[number_bytes_read] = Serial1.read();
     number_bytes_read++;
     
@@ -261,5 +299,5 @@ void loop() {
   dispatcher();
   Serial.println("dispatcher ends");
   Serial.println("New Loop ends here \n");
-  delay(100);
+  delay(200);
 }
