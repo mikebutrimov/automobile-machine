@@ -29,7 +29,7 @@ byte aft_bytes = 0;
 
 void fill_can_commands(){
   /*If our dispatcher receive this CAN_COMMAND, he will clear the queue*/
-  can_commands[Clear]       = (CAN_COMMAND) {253,0,0,{0,0,0,0,0,0,0,0},0,0};
+  can_commands[Clear]       = (CAN_COMMAND) {0,0,0,{0,0,0,0,0,0,0,0},0,0};
   /*Turn on head unit. must send with 250 ms. interval*/
   can_commands[HeadUnitOn]  = (CAN_COMMAND){1,0x165,4,{200,192,16,0,0,0,0,0},0,250};
   /*Enter and leave menu and control cursor buttons*/
@@ -52,12 +52,12 @@ void fill_can_commands(){
 
 /*create command from payload-typed packet if needed*/
 int create_command (byte* payload, CAN_COMMAND* cmd){
-  //Serial.println("DEBUG create_command"); 
+  //Serial1.println("DEBUG create_command"); 
   /*payload is packet_len bytes array from android via uart */
   //check for valid command
   byte cmd_code = payload[1];
   int chk = payload[packet_len-2] << 8 | payload[packet_len-1]; //last 2 bytes 
-  //Serial.println(chk);
+  //Serial1.println(chk);
   if (magic_byte + cmd_code == chk){ //sanity check
     if (cmd_code!= Payload){ 
       *cmd =  can_commands[cmd_code];
@@ -89,21 +89,21 @@ void add_can_command(CAN_COMMAND cmd){
   /*fail enough, we don't have == for structs, but if count and address are equal 0
   then ok, i can hardly believe it is a valid can CAN_COMMAND, not 'Clear' CAN_COMMAND*/
   if (cmd.count == 0 && cmd.address ==  0 && cmd.bytes == 0){
-    /*Serial.println("BLAD! Struct output:");
-    Serial.print("count - > ");
-    Serial.println(cmd.count);
-    Serial.print("address - > ");
-    Serial.println(cmd.address);
-    Serial.print("bytes - > ");
-    Serial.println(cmd.bytes);
-    Serial.println("payload - > ");
+    /*Serial1.println("BLAD! Struct output:");
+    Serial1.print("count - > ");
+    Serial1.println(cmd.count);
+    Serial1.print("address - > ");
+    Serial1.println(cmd.address);
+    Serial1.print("bytes - > ");
+    Serial1.println(cmd.bytes);
+    Serial1.println("payload - > ");
     for (int i = 0; i< 8; i++){
-      Serial.print(String(cmd.payload[i]));
+      Serial1.print(String(cmd.payload[i]));
     }
-    Serial.print("putInTime - > ");
-    Serial.println(cmd.putInTime);
-    Serial.print("delayTime - > ");
-    Serial.println(cmd.delayTime);*/
+    Serial1.print("putInTime - > ");
+    Serial1.println(cmd.putInTime);
+    Serial1.print("delayTime - > ");
+    Serial1.println(cmd.delayTime);*/
     queue.clear();
   }
   /*put CAN_COMMAND in queue*/
@@ -119,8 +119,8 @@ void dispatcher(){
   then check for execution needed*/
   for (std::list<CAN_COMMAND>::iterator i_cmd = queue.begin(); i_cmd != queue.end();){
     std::list<CAN_COMMAND>::iterator b_cmd; //buf iterator
-    Serial.println("DEBUG SIZE");
-    Serial.println(queue.size());
+    Serial1.println("DEBUG SIZE");
+    Serial1.println(queue.size());
     //prepare payload buffer
     CAN_COMMAND cmd =  *i_cmd;
     byte payload[cmd.bytes];
@@ -151,24 +151,24 @@ void dispatcher(){
 
 /*-----------------------------------------------------*/
 void read_cmd(){
-  //Serial.println("NEW READ 1");
+  //Serial1.println("NEW READ 1");
   byte buffer[packet_len];
   CAN_COMMAND cmd;
   buffer[0] = magic_byte;
 
-  if (Serial1.read() == magic_byte){
-    //Serial.println("NEW READ 2");
-    if (Serial1.available() >= packet_len-1){
-      //Serial.println("NEW READ 3");
+  if (Serial.read() == magic_byte){
+    //Serial1.println("NEW READ 2");
+    if (Serial.available() >= packet_len-1){
+      //Serial1.println("NEW READ 3");
       for (int i = 1; i < packet_len; i++){
-        buffer[i] = Serial1.read();
+        buffer[i] = Serial.read();
       }
       for (int i = 0; i < packet_len; i++){
-        //Serial.print(buffer[i]);
+        //Serial1.print(buffer[i]);
       }
-      Serial.println();
+      Serial1.println();
       if (create_command(buffer,&cmd)!= 0){
-        //Serial.println("NEW READ 4");
+        //Serial1.println("NEW READ 4");
         add_can_command(cmd);
       }
     }
@@ -182,12 +182,12 @@ void read_cmd_old(){
   //reads all input buffer and finds commands
   //for each found command constructs and execs 
   //add_command function.
-  //include HardwareSerial.cpp to get defined SERIAL_BUFFER_SIZE
+  //include HardwareSerial1.cpp to get defined SERIAL_BUFFER_SIZE
   //which may be 16 or 64 bytes.
-  Serial.println("DEBUG 1");
+  Serial1.println("DEBUG 1");
   //concat bfr and aft buffers to check for command
   if (bfr_bytes + aft_bytes == packet_len){
-    Serial.println("DEBUG 2");
+    Serial1.println("DEBUG 2");
     CAN_COMMAND cmd;
     byte packet[packet_len];
     for (int i = 0; i< aft_bytes; i++){
@@ -208,26 +208,26 @@ void read_cmd_old(){
   //read buffer untill it does have bytes
   //or till it lasts 
   byte number_bytes_read = 0;
-  while (Serial1.available() != 0){
+  while (Serial.available() != 0){
     if (number_bytes_read == SERIAL_BUFFER_SIZE){
       break;
     }
     
-    read_buffer[number_bytes_read] = Serial1.read();
+    read_buffer[number_bytes_read] = Serial.read();
     number_bytes_read++;
     
   }
-  Serial.println("DEBUG 3");
+  Serial1.println("DEBUG 3");
   //loop through read_buffer
   //before first magic  byte everythoing goes into 
   //bfr_buffer. Then time to look for commands.
   //when we have less bytes than valid packet len, then
   //everything goes to aft_buffer
   for (int i = 0; i < number_bytes_read;){
-    Serial.println("DEBUG 4");
+    Serial1.println("DEBUG 4");
     //read for the first magic byte
     if (read_buffer[i] != magic_byte && i < packet_len){
-      Serial.println("DEBUG 5");
+      Serial1.println("DEBUG 5");
       //if first encounter of magic byte occurs when
       //i will be less than packet_len, then ok
       //seems bfr_buffer may be legit
@@ -237,7 +237,7 @@ void read_cmd_old(){
       bfr_bytes++;
     }
     else if (number_bytes_read - i < packet_len){
-      Serial.println("DEBUG 6");
+      Serial1.println("DEBUG 6");
       //seems it is less bytes in buffer that can be a valid command
       //so copy them to aft_buffer and update aft_bytes count
       for (int j = 0; j < number_bytes_read - i; j++){
@@ -248,7 +248,7 @@ void read_cmd_old(){
       break;
     }
     else{
-      Serial.println("DEBUG 7");
+      Serial1.println("DEBUG 7");
       //back-up i as magic byte element
       int magic_i = i;
       //fast forward i to skip possible command
@@ -270,20 +270,20 @@ void read_cmd_old(){
 
 
 void setup() {
-  Serial.begin(115200);
   Serial1.begin(115200);
+  Serial.begin(115200);
   fill_can_commands();
   /*
   START_INIT:
 
     if(CAN_OK == CAN.begin(CAN_500KBPS))                   // init can bus : baudrate = 500k
     {
-        Serial.println("CAN BUS Shield init ok!");
+        Serial1.println("CAN BUS Shield init ok!");
     }
     else
     {
-        Serial.println("CAN BUS Shield init fail");
-        Serial.println("Init CAN BUS Shield again");
+        Serial1.println("CAN BUS Shield init fail");
+        Serial1.println("Init CAN BUS Shield again");
         delay(100);
         goto START_INIT;
     }
@@ -292,12 +292,12 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("New Loop starts here \n");
+  Serial1.println("New Loop starts here \n");
   read_cmd();
-  Serial.println(queue.size());
-  Serial.println("dispatcher starts");
+  Serial1.println(queue.size());
+  Serial1.println("dispatcher starts");
   dispatcher();
-  Serial.println("dispatcher ends");
-  Serial.println("New Loop ends here \n");
+  Serial1.println("dispatcher ends");
+  Serial1.println("New Loop ends here \n");
   delay(200);
 }
