@@ -93,10 +93,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         Button button_clear = (Button) findViewById(R.id.button_clear);
         button_clear.setOnClickListener(mOnClickListener);
 
-
-
-
-
         //register receiver
         mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
@@ -104,11 +100,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
         //probe for devices
         //if one then select as default and make toast
-        fillSpinner(getCurrentFocus());
-        if (devices.size() == 1){
-            mUsbDevice = availableDrivers.get(0);
-            selected_dev_toast(this.getCurrentFocus(), mUsbDevice);
-        }
+        fillSpinner(this.getCurrentFocus());
+
     }
 
 
@@ -204,6 +197,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         try {
                 port.open(connection);
             } catch (IOException e) {
+                Log.d("AMTESTS  OPEN PORT","EXCEPTION");
                 e.printStackTrace();
             }
         try {
@@ -213,6 +207,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 //Toast.makeText(this,"read from buffer: " +buffer.toString(),Toast.LENGTH_LONG).show();
                 return port;
             } catch (IOException e) {
+            Log.d("AMTESTS SET PORT","EXCEPTION");
                 // Deal with error.
             }
         return null;
@@ -224,7 +219,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         Toast.makeText(this,dev_string,Toast.LENGTH_LONG).show();
     }
 
-    //implementen fucking shit for spinners
+    //implement fucking shit for spinners
     public void onItemSelected(AdapterView<?> sDevices, View v, int pos, long id){
         String device_position = sDevices.getSelectedItem().toString();
         mUsbDevice = devices.get(device_position);
@@ -248,8 +243,12 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         if (port != null){
             //
             try {
-                port.write(cmd,10000);
+                Log.d("AMTESTS","WRITE STARTS HERE");
+                port.write(cmd,50);
+                Log.d("AMTESTS","WRITE ENDS HERE");
+
             } catch (IOException e) {
+                Log.d("AMTESTS PUSH COMMAND","EXCEPTION");
                 e.printStackTrace();
             }
         }

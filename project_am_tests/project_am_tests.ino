@@ -50,6 +50,21 @@ void fill_can_commands(){
   can_commands[Source]      = (CAN_COMMAND){2,0x21f,3,{2,0,0,0,0,0,0,0},0,0};  //src
 }
 
+
+void sendCmd(CAN_COMMAND cmd){
+  int count = cmd.count;
+  int b_count = cmd.bytes;
+  byte * buffer = new byte[b_count];
+  //copy useful bytes from command to buffer to send it in CAN
+  for (int i = 0; i< b_count; i++){
+    buffer[i] = cmd.payload[i];
+  }
+  for (int i = 0; i< count; i++){
+    CAN.sendMsgBuf(cmd.address, 0, b_count,buffer);
+  }
+  delete[] buffer;
+}
+
 /*create command from payload-typed packet if needed*/
 int create_command (byte* payload, CAN_COMMAND* cmd){
   //Serial1.println("DEBUG create_command"); 
@@ -131,8 +146,9 @@ void dispatcher(){
     //check for repeatness
     if (cmd.delayTime == 0){//ok, need to push it once
       //emulate can send
-      delay(20);
+      //delay(20);
       //CAN.sendMsgBuf(cmd.address,0,cmd.bytes,payload);
+      sendCmd(cmd);
       b_cmd = i_cmd;
       ++i_cmd;
       queue.erase(b_cmd);
@@ -140,8 +156,9 @@ void dispatcher(){
     else { //ok, we have periodic command
       if ( (cmd.delayTime + cmd.putInTime - millis()) > 0){
         //emulate cmd send
-        delay(20);
+        //delay(20);
         //CAN.sendMsgBuf(cmd.address,0,cmd.bytes,payload);
+        sendCmd(cmd);
         i_cmd->putInTime = millis();
         ++i_cmd;
       }
@@ -273,10 +290,10 @@ void setup() {
   Serial1.begin(115200);
   Serial.begin(115200);
   fill_can_commands();
-  /*
+  
   START_INIT:
 
-    if(CAN_OK == CAN.begin(CAN_500KBPS))                   // init can bus : baudrate = 500k
+    if(CAN_OK == CAN.begin(CAN_125KBPS))                   // init can bus : baudrate = 500k
     {
         Serial1.println("CAN BUS Shield init ok!");
     }
@@ -287,7 +304,7 @@ void setup() {
         delay(100);
         goto START_INIT;
     }
-    */
+    
 
 }
 
