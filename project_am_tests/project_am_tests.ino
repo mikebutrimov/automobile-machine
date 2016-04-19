@@ -315,6 +315,7 @@ void loop() {
   Serial1.println("dispatcher starts");
   dispatcher();
   Serial1.println("dispatcher ends");
-  Serial1.println("New Loop ends here \n");
+  Serial1
+  .println("New Loop ends here \n");
   delay(200);
 }

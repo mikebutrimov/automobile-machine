@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.StringTokenizer;
 
 
-public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
+public class MainActivity extends AppCompatActivity {
     private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
     public PendingIntent mPermissionIntent;
     public HashMap<String, UsbDevice> availableDrivers;
@@ -43,9 +43,9 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     public CmdStorage mCmdStorage = new CmdStorage();
     public UsbSerialPort port;
     public UsbDeviceConnection connection;
+    public int ArduinoId = 9025;
 
     private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
-
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (ACTION_USB_PERMISSION.equals(action)) {
@@ -54,8 +54,10 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if(device != null){
-                            port = init_port(device);
-                            //call method to set up device communication
+                            Intent startServiceIntent = new Intent(getApplicationContext(),SerialIOService.class);
+                            stopService(startServiceIntent);
+                            startService(startServiceIntent);
+                            finish();
                         }
                     }
                     else {
@@ -73,6 +75,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         //set onClickListener for some buttons
         Button button_up = (Button) findViewById(R.id.button_up);
         button_up.setOnClickListener(mOnClickListener);
@@ -93,14 +96,32 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         Button button_clear = (Button) findViewById(R.id.button_clear);
         button_clear.setOnClickListener(mOnClickListener);
 
-        //register receiver
         mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
         registerReceiver(mUsbReceiver, filter);
 
-        //probe for devices
-        //if one then select as default and make toast
-        fillSpinner(this.getCurrentFocus());
+
+        manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        availableDrivers = manager.getDeviceList();
+        //pass throug all usb devices and search for arduino
+        //a little bit narkomansky way to find correct device
+        //but why not?
+
+        if (availableDrivers != null) {
+            Iterator<UsbDevice> deviceIterator = availableDrivers.values().iterator();
+            while (deviceIterator.hasNext()) {
+                UsbDevice device = deviceIterator.next();
+                if (device.getVendorId() == ArduinoId && !manager.hasPermission(device)) {
+                    mUsbDevice = device;
+                    manager.requestPermission(mUsbDevice, mPermissionIntent);
+                    break;
+
+                }
+            }
+        }
+
+        Intent startServiceIntent = new Intent(getApplicationContext(),SerialIOService.class);
+        startService(startServiceIntent);
 
     }
 
@@ -110,148 +131,57 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         public void onClick(View v) {
             switch (v.getId()) {
                 case R.id.button_up:
-                    push_command(mCmdStorage.getCommand("UpButton"),port);
+                    push_command("UpButton");
                     break;
                 case R.id.button_down:
-                    push_command(mCmdStorage.getCommand("DownButton"),port);
+                    push_command("DownButton");
                     break;
                 case R.id.button_left:
-                    push_command(mCmdStorage.getCommand("LeftButton"),port);
+                    push_command("LeftButton");
                     break;
                 case R.id.button_right:
                     for (byte b: mCmdStorage.getCommand("RightButton")){
                         Log.d("COMMAND BYTES", String.valueOf(b));
                     }
-                    push_command(mCmdStorage.getCommand("RightButton"),port);
+                    push_command("RightButton");
                     break;
                 case R.id.button_menu:
-                    push_command(mCmdStorage.getCommand("Menu"),port);
+                    push_command("Menu");
                     break;
                 case R.id.button_exit:
-                    push_command(mCmdStorage.getCommand("Esc"),port);
+                    push_command("Esc");
                     break;
                 case R.id.button_ok:
-                    push_command(mCmdStorage.getCommand("Ok"),port);
+                    push_command("Ok");
                     break;
                 case R.id.button_hon:
-                    byte[] ololo = new byte[]{(byte)113,(byte)1,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)114};
-
-                    push_command(mCmdStorage.getCommand("HeadUnitOn"),port);
+                    push_command("HeadUnitOn");
                     break;
                 case R.id.button_clear:
-                    push_command(mCmdStorage.getCommand("Clear"),port);
+                    push_command("Clear");
                     break;
             }
         }
     };
 
+
+
+    public void push_command(String cmd){
+        Intent cmdIntent = new Intent(this,SerialIOService.class);
+        cmdIntent.putExtra("INCMD",cmd);
+        startService(cmdIntent);
+    }
+
+    public void StopService(View v){
+        Intent intent = new Intent(this,SerialIOService.class);
+        stopService(intent);
+    }
+
+
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-
-    public void fillSpinner(View v) {
-        devices.clear();
-        manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        availableDrivers = manager.getDeviceList();
-        if (availableDrivers != null) {
-            Iterator<UsbDevice> deviceIterator = availableDrivers.values().iterator();
-            while(deviceIterator.hasNext()){
-                UsbDevice device = deviceIterator.next();
-                devices.put(device.getDeviceName(), device);
-            }
-        }
-        List<String> spinnerArray =  new ArrayList<String>();
-        for (String device : devices.keySet()) {
-            spinnerArray.add(device);
-        }
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
-                this, android.R.layout.simple_spinner_item, spinnerArray);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        Spinner sDevices = (Spinner) findViewById(R.id.spinner_devices);
-        sDevices.setOnItemSelectedListener(this);
-        sDevices.setAdapter(adapter);
-
-    }
-
-    public UsbSerialPort init_port (UsbDevice mUsbDevice) {
-        mUsbSerialDevice = UsbSerialProber.getDefaultProber().probeDevice(mUsbDevice);
-        UsbSerialPort port = mUsbSerialDevice.getPorts().get(0);
-        connection = manager.openDevice(mUsbDevice);
-        try {
-                port.open(connection);
-            } catch (IOException e) {
-                Log.d("AMTESTS  OPEN PORT","EXCEPTION");
-                e.printStackTrace();
-            }
-        try {
-                port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
-                //byte buffer[] = new byte[16];
-                //int numBytesRead = port.read(buffer, 1000);
-                //Toast.makeText(this,"read from buffer: " +buffer.toString(),Toast.LENGTH_LONG).show();
-                return port;
-            } catch (IOException e) {
-            Log.d("AMTESTS SET PORT","EXCEPTION");
-                // Deal with error.
-            }
-        return null;
-    }
-
-
-    public void selected_dev_toast(View v,UsbDevice mUsbDevice ){
-        String dev_string = mUsbDevice.getDeviceName() + " " + mUsbDevice.getSerialNumber() + " is selected";
-        Toast.makeText(this,dev_string,Toast.LENGTH_LONG).show();
-    }
-
-    //implement fucking shit for spinners
-    public void onItemSelected(AdapterView<?> sDevices, View v, int pos, long id){
-        String device_position = sDevices.getSelectedItem().toString();
-        mUsbDevice = devices.get(device_position);
-        selected_dev_toast(v, mUsbDevice);
-        connection = manager.openDevice(mUsbDevice);
-        if (connection == null) {
-            manager.requestPermission(mUsbDevice, mPermissionIntent);
-        }
-        else {
-            port = init_port(mUsbDevice);
-        }
-    }
-    public void onNothingSelected(AdapterView<?> parent) {
-        // Do nothing here, why not
-    }
-
-
-
-
-    public void push_command(byte[] cmd, UsbSerialPort port){
-        if (port != null){
-            //
-            try {
-                Log.d("AMTESTS","WRITE STARTS HERE");
-                port.write(cmd,50);
-                Log.d("AMTESTS","WRITE ENDS HERE");
-
-            } catch (IOException e) {
-                Log.d("AMTESTS PUSH COMMAND","EXCEPTION");
-                e.printStackTrace();
-            }
-        }
+    public void onDestroy() {
+        unregisterReceiver(mUsbReceiver);
+        super.onDestroy();
     }
 
 }
