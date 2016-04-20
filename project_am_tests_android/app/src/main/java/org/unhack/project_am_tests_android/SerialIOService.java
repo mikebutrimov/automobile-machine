@@ -119,7 +119,7 @@ public class SerialIOService extends Service {
             startForeground(ONGOING_NOTIFICATION_ID, mNotification);
             Log.d("AM TESTST SERVICE", "After starting notification");
 
-            mThread = new IOThread(port);
+            mThread = new IOThread(port,getApplicationContext());
             Log.d("AM TESTS SERVICE","Created thread");
             mThread.start();
 

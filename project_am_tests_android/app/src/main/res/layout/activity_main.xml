@@ -132,4 +132,28 @@
         android:layout_alignParentStart="true"
         android:onClick="StopService" />
 
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="икспиримент"
+        android:id="@+id/button_pamp_1"
+        android:layout_below="@+id/button_stop"
+        android:layout_alignParentStart="true" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="икспиримент"
+        android:id="@+id/button_pamp_2"
+        android:layout_alignTop="@+id/button_hon"
+        android:layout_alignParentStart="true" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="икспиримент"
+        android:id="@+id/button_pamp_3"
+        android:layout_centerVertical="true"
+        android:layout_alignParentStart="true" />
+
 </RelativeLayout>

@@ -12,24 +12,15 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.Spinner;
-import android.widget.Toast;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
-import com.hoho.android.usbserial.driver.UsbSerialProber;
+import com.maxmpz.poweramp.player.PowerampAPI;
 
-import java.io.IOException;
-import java.util.ArrayList;
+
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.StringTokenizer;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -95,6 +86,13 @@ public class MainActivity extends AppCompatActivity {
         button_hon.setOnClickListener(mOnClickListener);
         Button button_clear = (Button) findViewById(R.id.button_clear);
         button_clear.setOnClickListener(mOnClickListener);
+        Button button_pamp_1 = (Button) findViewById(R.id.button_pamp_1);
+        button_pamp_1.setOnClickListener(mOnClickListener);
+        Button button_pamp_2 = (Button) findViewById(R.id.button_pamp_2);
+        button_pamp_2.setOnClickListener(mOnClickListener);
+        Button button_pamp_3 = (Button) findViewById(R.id.button_pamp_3);
+        button_pamp_3.setOnClickListener(mOnClickListener);
+
 
         mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
@@ -160,6 +158,16 @@ public class MainActivity extends AppCompatActivity {
                 case R.id.button_clear:
                     push_command("Clear");
                     break;
+                case R.id.button_pamp_1:
+                    startService(new Intent(PowerampAPI.ACTION_API_COMMAND).putExtra(PowerampAPI.COMMAND, PowerampAPI.Commands.TOGGLE_PLAY_PAUSE).setPackage(PowerampAPI.PACKAGE_NAME));
+                    break;
+                case R.id.button_pamp_2:
+                    startService(new Intent(PowerampAPI.ACTION_API_COMMAND).putExtra(PowerampAPI.COMMAND, PowerampAPI.Commands.PREVIOUS).setPackage(PowerampAPI.PACKAGE_NAME));
+                    break;
+                case R.id.button_pamp_3:
+                    startService(new Intent(PowerampAPI.ACTION_API_COMMAND).putExtra(PowerampAPI.COMMAND, PowerampAPI.Commands.NEXT).setPackage(PowerampAPI.PACKAGE_NAME));
+                    break;
+
             }
         }
     };

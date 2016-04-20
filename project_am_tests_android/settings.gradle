@@ -1,1 +1,2 @@
 include ':app', ':usbSerialForAndroid'
+include ':poweramp_api_lib'

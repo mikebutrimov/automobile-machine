@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/poweramp_api_lib/poweramp_api_lib.iml" filepath="$PROJECT_DIR$/poweramp_api_lib/poweramp_api_lib.iml" />
       <module fileurl="file://$PROJECT_DIR$/project_am_tests_android.iml" filepath="$PROJECT_DIR$/project_am_tests_android.iml" />
       <module fileurl="file://$PROJECT_DIR$/usbSerialForAndroid/usbSerialForAndroid.iml" filepath="$PROJECT_DIR$/usbSerialForAndroid/usbSerialForAndroid.iml" />
     </modules>
