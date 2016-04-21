@@ -5,6 +5,7 @@
 #include <vector>
 #include <serstream>
 #include <pnew.cpp>
+#include <vector>
 #include <list>
 #include <map>
 #include <algorithm>
@@ -14,6 +15,10 @@
 MCP_CAN CAN(10); 
 std::list<CAN_COMMAND> queue;
 std::map<byte,CAN_COMMAND> can_commands;
+std::vector<byte> trololo;
+std::map<std::vector<byte>,std::vector<byte> > android_commands;
+
+//std::map<std::array<byte, 8>,std::array<byte, 4>> android_commands;
 //strange and important part.
 //two globals for bytes read from buffer
 //that go before first parsed command
@@ -26,6 +31,10 @@ byte aft_buffer[SERIAL_BUFFER_SIZE];
 byte bfr_bytes = 0;
 byte aft_bytes = 0;
 
+
+std::vector<byte> getV(byte *array, int len){
+  return std::vector<byte>(array, array+len);
+}
 
 void fill_can_commands(){
   /*If our dispatcher receive this CAN_COMMAND, he will clear the queue*/
@@ -48,7 +57,78 @@ void fill_can_commands(){
   can_commands[VolumeUp]    = (CAN_COMMAND){2,0x21f,3,{8,0,0,0,0,0,0,0},0,0};  //vUp
   can_commands[VolumeDown]  = (CAN_COMMAND){2,0x21f,3,{4,0,0,0,0,0,0,0},0,0};  //vDown
   can_commands[Source]      = (CAN_COMMAND){2,0x21f,3,{2,0,0,0,0,0,0,0},0,0};  //src
+  
+  //fill android_commands
+  byte cmd[8] = {0,0,0,0,0,0,0,0};
+  byte android_cmd[4] = {magic_byte,0,0,0};
+  short crc;
+  //Forward
+  cmd[0] = 128;
+  crc = magic_byte + Forward;
+  android_cmd[1] = Forward;
+  android_cmd[2] = (crc>> 8) & 0xff;
+  android_cmd[3] = crc& 0xff;
+  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  
+  //Backward
+  cmd[0] = 64;
+  crc = magic_byte + Backward;
+  android_cmd[1] = Backward;
+  android_cmd[2] = (crc>> 8) & 0xff;
+  android_cmd[3] = crc& 0xff;
+  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  
+  //VolumeUp
+  cmd[0] = 8;
+  crc = magic_byte + VolumeUp;
+  android_cmd[1] = VolumeUp;
+  android_cmd[2] = (crc>> 8) & 0xff;
+  android_cmd[3] = crc& 0xff;
+  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  
+  //VolumeDown
+  cmd[0] = 4;
+  crc = magic_byte + VolumeDown;
+  android_cmd[1] = VolumeDown;
+  android_cmd[2] = (crc>> 8) & 0xff;
+  android_cmd[3] = crc& 0xff;
+  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  
+  //Source
+  cmd[0] = 2;
+  crc = magic_byte + Source;
+  android_cmd[1] = Source;
+  android_cmd[2] = (crc>> 8) & 0xff;
+  android_cmd[3] = crc& 0xff;
+  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  
+  
 }
+
+void readCanCmd(){
+  unsigned char len = 0;
+  unsigned char buf[8]; 
+  //Serial1.println("in read can cmd");
+  if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
+    {
+        CAN.readMsgBuf(&len, buf); 
+        for (int i = len; i< 8; i++){
+          buf[i] = 0;
+        }
+        Serial1.println("in can receive");
+        std::vector<byte> key = getV(buf, 8);
+        if (android_commands.find(key) != android_commands.end()){
+          
+          std::vector<byte> android_cmd = android_commands[key];
+          byte*  cmd_buf = &android_cmd[0];
+          for (int i = 0; i < 4; i ++){
+          Serial1.print(cmd_buf[i]);
+          }
+          Serial.write(cmd_buf,4);
+        }
+    }
+}
+
 
 
 void sendCmd(CAN_COMMAND cmd){
@@ -104,21 +184,6 @@ void add_can_command(CAN_COMMAND cmd){
   /*fail enough, we don't have == for structs, but if count and address are equal 0
   then ok, i can hardly believe it is a valid can CAN_COMMAND, not 'Clear' CAN_COMMAND*/
   if (cmd.count == 0 && cmd.address ==  0 && cmd.bytes == 0){
-    /*Serial1.println("BLAD! Struct output:");
-    Serial1.print("count - > ");
-    Serial1.println(cmd.count);
-    Serial1.print("address - > ");
-    Serial1.println(cmd.address);
-    Serial1.print("bytes - > ");
-    Serial1.println(cmd.bytes);
-    Serial1.println("payload - > ");
-    for (int i = 0; i< 8; i++){
-      Serial1.print(String(cmd.payload[i]));
-    }
-    Serial1.print("putInTime - > ");
-    Serial1.println(cmd.putInTime);
-    Serial1.print("delayTime - > ");
-    Serial1.println(cmd.delayTime);*/
     queue.clear();
   }
   /*put CAN_COMMAND in queue*/
@@ -311,11 +376,12 @@ void setup() {
 void loop() {
   Serial1.println("New Loop starts here \n");
   read_cmd();
+  readCanCmd();
   Serial1.println(queue.size());
   Serial1.println("dispatcher starts");
   dispatcher();
   Serial1.println("dispatcher ends");
-  Serial1
-  .println("New Loop ends here \n");
-  delay(200);
+  Serial1.println("New Loop ends here \n");
+  //delay(200);
+  
 }

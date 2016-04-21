@@ -59,12 +59,10 @@ public class IOThread extends Thread {
                     chk_buf.order(ByteOrder.LITTLE_ENDIAN);
                     chk_buf.put(buffer[i+2],buffer[i+3]);
                     short chk = chk_buf.getShort();
-
-
                     Log.d("EBA!!!!","CRC " + String.valueOf(chk));
                     if (chk == buffer[i+1]+113){
                         if (buffer[i+1] == 104){
-                            mContext.startService(new Intent(PowerampAPI.ACTION_API_COMMAND).putExtra(PowerampAPI.COMMAND, PowerampAPI.Commands.TOGGLE_PLAY_PAUSE).setPackage(PowerampAPI.PACKAGE_NAME));
+                            mContext.startService(mCmdStorage.getAndroidIntent(buffer[i+1]));
                         }
                     }
                 }

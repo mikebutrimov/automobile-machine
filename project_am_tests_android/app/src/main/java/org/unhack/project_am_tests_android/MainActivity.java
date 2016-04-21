@@ -1,21 +1,20 @@
 package org.unhack.project_am_tests_android;
 
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
-import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
-import com.hoho.android.usbserial.driver.UsbSerialDriver;
-import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.maxmpz.poweramp.player.PowerampAPI;
 
 
@@ -27,13 +26,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
     public PendingIntent mPermissionIntent;
     public HashMap<String, UsbDevice> availableDrivers;
-    public HashMap<String,UsbDevice> devices = new HashMap<>();
     public UsbManager manager = null;
     public UsbDevice mUsbDevice;
-    public UsbSerialDriver mUsbSerialDevice = null;
-    public CmdStorage mCmdStorage = new CmdStorage();
-    public UsbSerialPort port;
-    public UsbDeviceConnection connection;
     public int ArduinoId = 9025;
 
     private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
@@ -119,7 +113,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Intent startServiceIntent = new Intent(getApplicationContext(),SerialIOService.class);
-        startService(startServiceIntent);
+        PendingIntent pStartServiceIntent = PendingIntent.getService(this, 0, startServiceIntent, 0);
+        AlarmManager alarm = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        long timeToExec = System.currentTimeMillis()+6000;
+        alarm.setExact(AlarmManager.RTC_WAKEUP,timeToExec,pStartServiceIntent);
+        Toast.makeText(this,"Alarm was set on +6000ms",Toast.LENGTH_SHORT).show();
 
     }
 
@@ -138,9 +136,6 @@ public class MainActivity extends AppCompatActivity {
                     push_command("LeftButton");
                     break;
                 case R.id.button_right:
-                    for (byte b: mCmdStorage.getCommand("RightButton")){
-                        Log.d("COMMAND BYTES", String.valueOf(b));
-                    }
                     push_command("RightButton");
                     break;
                 case R.id.button_menu:

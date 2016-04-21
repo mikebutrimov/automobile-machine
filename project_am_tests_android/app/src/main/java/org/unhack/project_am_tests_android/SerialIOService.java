@@ -11,6 +11,7 @@ import android.hardware.usb.UsbManager;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
@@ -103,6 +104,7 @@ public class SerialIOService extends Service {
         //in onCreate we select device
         //and init port by calling select_port
         Log.d("AM TESTST SERVICE", "In onCreate");
+        Toast.makeText(getApplicationContext(),"Starting service",Toast.LENGTH_SHORT).show();
         select_port();
         if (port != null) {
             Intent notificationIntent = new Intent(this, MainActivity.class);
@@ -146,9 +148,12 @@ public class SerialIOService extends Service {
     @Override
     public void onDestroy() {
         //destroy something here later
+
         if (mThread != null) {
             mThread.stopthread();
         }
+
+        Toast.makeText(getApplicationContext(),"Stoping service",Toast.LENGTH_SHORT).show();
     }
 
 }
