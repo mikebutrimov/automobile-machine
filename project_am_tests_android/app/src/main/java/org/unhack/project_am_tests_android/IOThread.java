@@ -50,7 +50,7 @@ public class IOThread extends Thread {
             int numBytesRead = 0;
             try {
                 numBytesRead = mPort.syncRead(buffer, 100);
-                Log.d("EBA!!!!","READING BUFFER");
+                //Log.d("EBA!!!!","READING BUFFER");
             } catch (Exception e) {
                 Log.d("EBA!!!!","HER VAM");
                 e.printStackTrace();
