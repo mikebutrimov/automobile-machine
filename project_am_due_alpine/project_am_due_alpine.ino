@@ -236,7 +236,7 @@ void readCanCmd(){
       //for (int i = 0; i < 4; i ++){
       //  Serial1.print(cmd_buf[i]);
       //}
-      Serial1.write(cmd_buf,4);
+      Serial.write(cmd_buf,4);
     }
   }
 }
@@ -308,8 +308,8 @@ void dispatcher(){
   then check for execution needed*/
   for (etl::list<CAN_COMMAND,MAX_SIZE>::iterator i_cmd = queue.begin(); i_cmd != queue.end();){
     etl::list<CAN_COMMAND,MAX_SIZE>::iterator b_cmd; //buf iterator
-    Serial.println("DEBUG SIZE");
-    Serial.println(queue.size());
+    Serial1.println("DEBUG SIZE");
+    Serial1.println(queue.size());
     //prepare payload buffer
     CAN_COMMAND cmd =  *i_cmd;
     byte payload[cmd.bytes];
@@ -345,12 +345,12 @@ void read_cmd(){
   byte buffer[packet_len];
   CAN_COMMAND cmd;
   buffer[0] = magic_byte;
-  if (Serial1.read() == magic_byte){
+  if (Serial.read() == magic_byte){
     //Serial1.println("NEW READ 2");
-    if (Serial1.available() >= packet_len-1){
+    if (Serial.available() >= packet_len-1){
       //Serial1.println("NEW READ 3");
       for (int i = 1; i < packet_len; i++){
-        buffer[i] = Serial1.read();
+        buffer[i] = Serial.read();
       }
       //for (int i = 0; i < packet_len; i++){
         //Serial1.print(buffer[i]);
@@ -381,12 +381,12 @@ void setup() {
 
     if(CAN_OK == CAN.begin(CAN_125KBPS))                   // init can bus : baudrate = 500k
     {
-        Serial.println("CAN BUS Shield init ok!");
+        Serial1.println("CAN BUS Shield init ok!");
     }
     else
     {
-        Serial.println("CAN BUS Shield init fail");
-        Serial.println("Init CAN BUS Shield again");
+        Serial1.println("CAN BUS Shield init fail");
+        Serial1.println("Init CAN BUS Shield again");
         delay(100);
         goto START_INIT;
     }
@@ -397,8 +397,9 @@ void loop() {
   // put your main code here, to run repeatedly:
   read_cmd();
   readCanCmd();
-  Serial.println(queue.size());
-  Serial.println("dispatcher starts");
+  Serial1.println(queue.size());
+  Serial1.println("dispatcher starts");
   dispatcher();
+  Serial1.println("dispatcher ends");
   delay(100);
 }

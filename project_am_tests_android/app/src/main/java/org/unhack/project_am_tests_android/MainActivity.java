@@ -115,9 +115,9 @@ public class MainActivity extends AppCompatActivity {
         Intent startServiceIntent = new Intent(getApplicationContext(),SerialIOService.class);
         PendingIntent pStartServiceIntent = PendingIntent.getService(this, 0, startServiceIntent, 0);
         AlarmManager alarm = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        long timeToExec = System.currentTimeMillis()+6000;
+        long timeToExec = System.currentTimeMillis()+500;
         alarm.setExact(AlarmManager.RTC_WAKEUP,timeToExec,pStartServiceIntent);
-        Toast.makeText(this,"Alarm was set on +6000ms",Toast.LENGTH_SHORT).show();
+        Toast.makeText(this,"Alarm was set on +500ms",Toast.LENGTH_SHORT).show();
 
     }
 

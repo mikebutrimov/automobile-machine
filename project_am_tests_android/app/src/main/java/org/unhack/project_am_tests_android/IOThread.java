@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import com.felhr.usbserial.UsbSerialDevice;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.maxmpz.poweramp.player.PowerampAPI;
 
@@ -17,10 +18,10 @@ import java.nio.ByteOrder;
 public class IOThread extends Thread {
     private CmdStorage mCmdStorage = new CmdStorage();
     private String inCmd = null;
-    private final UsbSerialPort mPort;
+    private final UsbSerialDevice mPort;
     private final Context mContext;
     private boolean running = true;
-    public IOThread(UsbSerialPort port, Context context){
+    public IOThread(UsbSerialDevice port, Context context){
         mPort = port;
         mContext = context;
     }
@@ -30,11 +31,15 @@ public class IOThread extends Thread {
     public void run(){
         while (running){
             if (inCmd != null){
+                Log.d("EBA!!!!","GET COMMAND TO WRITE");
                 byte[] data = mCmdStorage.getCommand(inCmd);
+                Log.d("EBA!!!!",data.toString());
                 try {
-                    mPort.write(data, 50);
+                    mPort.write(data);
                     inCmd = null;
-                } catch (IOException e) {
+                    Log.d("EBA!!!!","WRITE COMMAND!");
+
+                } catch (Exception e) {
                     Log.d("AM TESTS THREAD","No PORT");
                     e.printStackTrace();
                 }
@@ -44,9 +49,9 @@ public class IOThread extends Thread {
             byte buffer[] = new byte[64];
             int numBytesRead = 0;
             try {
-                numBytesRead = mPort.read(buffer, 100);
+                numBytesRead = mPort.syncRead(buffer, 100);
                 Log.d("EBA!!!!","READING BUFFER");
-            } catch (IOException e) {
+            } catch (Exception e) {
                 Log.d("EBA!!!!","HER VAM");
                 e.printStackTrace();
             }

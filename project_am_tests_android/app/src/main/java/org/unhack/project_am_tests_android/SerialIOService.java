@@ -13,6 +13,8 @@ import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.felhr.usbserial.UsbSerialDevice;
+import com.felhr.usbserial.UsbSerialInterface;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
@@ -21,6 +23,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 
+
+
 public class SerialIOService extends Service {
     private int ONGOING_NOTIFICATION_ID = 1;
     public int ArduinoId = 9025;
@@ -28,13 +32,26 @@ public class SerialIOService extends Service {
     public UsbManager manager = null;
     public HashMap<String, UsbDevice> availableDrivers;
     public UsbDevice mUsbDevice;
+    public UsbSerialDevice mOloloDevice;
     public UsbSerialDriver mUsbSerialDevice = null;
-    public UsbSerialPort port = null;
+    //public UsbSerialPort port = null;
+    public UsbSerialDevice port = null;
     public UsbDeviceConnection connection;
     private IOThread mThread;
 
 
-    public UsbSerialPort init_port (UsbDevice mUsbDevice) {
+    public UsbSerialDevice init_port(UsbDevice mUsbDevice){
+        port = UsbSerialDevice.createUsbSerialDevice(mUsbDevice,connection);
+        port.open();
+        port.setBaudRate(115200);
+        port.setDataBits(UsbSerialInterface.DATA_BITS_8);
+        port.setParity(UsbSerialInterface.PARITY_NONE);
+        port.setFlowControl(UsbSerialInterface.FLOW_CONTROL_OFF);
+        port.setStopBits(1);
+        return port;
+    }
+
+    public UsbSerialPort init_port_2 (UsbDevice mUsbDevice) {
         mUsbSerialDevice = UsbSerialProber.getDefaultProber().probeDevice(mUsbDevice);
         Log.d("AM PORTS!!!!",mUsbSerialDevice.getPorts().toString());
         UsbSerialPort port = mUsbSerialDevice.getPorts().get(0);
@@ -55,6 +72,8 @@ public class SerialIOService extends Service {
         return null;
     }
 
+
+
     public void select_port(){
         manager = (UsbManager) getSystemService(Context.USB_SERVICE);
         availableDrivers = manager.getDeviceList();
@@ -64,16 +83,6 @@ public class SerialIOService extends Service {
         Log.d("AM TESTST SERVICE","In SELECT PORT");
         if (availableDrivers != null) {
             Iterator<UsbDevice> deviceIterator = availableDrivers.values().iterator();
-            /*while (deviceIterator.hasNext()) {
-                UsbDevice device = deviceIterator.next();
-                Log.d("AMDEVICE",device.getDeviceName());
-                Log.d("AMDEVICEID",String.valueOf( device.getVendorId()));
-                Log.d("AMDEVICEPORT",UsbSerialProber.getDefaultProber().probeDevice(device).getPorts().toString());
-
-            }*/
-
-
-
             while (deviceIterator.hasNext()) {
                 UsbDevice device = deviceIterator.next();
                 if (device.getVendorId() == ArduinoId || device.getVendorId()  == ProlificId || device.getVendorId() == 8963 ) {
@@ -145,9 +154,17 @@ public class SerialIOService extends Service {
         Log.d("AM TESTST SERVICE","In onStart");
 
         String inCmd = intent.getStringExtra("INCMD");
+        if (inCmd != null && !inCmd.equals("")) {
+            Log.d("AM TESTST SERVICE", inCmd);
+        }
+        else {
+            Log.d("AM TESTST SERVICE", "NO BLOODY COMMAND!!!");
+        }
+
         if (mThread != null) {
             mThread.setInCmd(inCmd);
         }
+
         return START_STICKY;
     }
 
