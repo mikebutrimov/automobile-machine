@@ -1,79 +1,20 @@
+#include <list.h>
+#include <algorithm.h>
+#include <map.h>
+#include <vector.h>
 #include <mcp_can.h>
 #include <SPI.h>
-#include <iterator>
-#include <string>
-#include <vector>
-#include <serstream>
-#include <pnew.cpp>
-#include <vector>
-#include <list>
-#include <map>
-#include <algorithm>
-#include "HardwareSerial.cpp"
 #include "commands.h"
-#include "arduino2.h" 
+#include "declarations.h"
 
 MCP_CAN CAN(10); 
-std::list<CAN_COMMAND> queue;
-std::map<byte,CAN_COMMAND> can_commands;
-std::map<std::vector<byte>,std::vector<byte> > android_commands;
-const int AINET = 13;
-uint8_t i,j,type;
-
-//strange and important part.
-//two globals for bytes read from buffer
-//that go before first parsed command
-//and after last parsed command in buffer
-//size is really enormous 
-//but as russian say "ebat, tak korolevu"
-byte bfr_buffer[SERIAL_BUFFER_SIZE];
-byte aft_buffer[SERIAL_BUFFER_SIZE];
-//two byte flags, for number of bytes in bfr and aft buffer
-byte bfr_bytes = 0;
-byte aft_bytes = 0;
-uint8_t vol[VOL_LEN]={0x99,0x78,0x68,0x60,0x55,0x50,0x48,0x46,0x44,0x42,
-                      0x40,0x38,0x36,0x34,0x32,0x30,0x28,0x26,0x24,0x22,
-                      0x20,0x18,0x16,0x14,0x12,0x10,0x09,0x08,0x07,0x06,
-                      0x05,0x04,0x03,0x02,0x01,0x00};
+etl::list<CAN_COMMAND, MAX_SIZE> queue;
+etl::map<byte,CAN_COMMAND,MAX_SIZE> can_commands;
+etl::map<etl::vector<int,MAX_SIZE_VECTOR>,etl::vector<int,MAX_SIZE_VECTOR>, MAX_SIZE > android_commands;
 
 
-
-std::vector<byte> getV(byte *array, int len){
-  return std::vector<byte>(array, array+len);
-}
-
-
-void sendAiPacket(byte * packet){
-  //SOF
-  digitalWrite2(AINET, HIGH);
-  delayMicroseconds(31.5);
-  digitalWrite2(AINET, LOW);
-  delayMicroseconds(4);
-    for (i=0;i<11;i++) {
-    for (j=0;j<8;j++) {
-      type=(packet[i] & (1 << (7-j))) >> (7-j);
-      if (type==0) {
-        digitalWrite2(AINET, HIGH);
-        delayMicroseconds(16);
-        digitalWrite2(AINET, LOW);
-        delayMicroseconds(4);
-      } else {
-        digitalWrite2(AINET, HIGH);
-        delayMicroseconds(8);
-        digitalWrite2(AINET, LOW);
-        delayMicroseconds(12);
-      }
-    }
-   }
-}
-  
-void volUp(){
-  byte packet[11] = {0x40,0x02,0xD2,0x99,0x00,0x00,0x00,0x00,0x00,0x00,0xD7};
-  packet[3] = vol[1];
-  crc(packet);
-  sendAiPacket(packet);
-}
-
+//some sutable functions to work with AINET
+//CRC for AINET packet
 void crc(uint8_t *packet) {
   uint8_t crc_reg=0xff,poly,i,j;
   uint8_t bit_point, *byte_point;
@@ -93,6 +34,93 @@ void crc(uint8_t *packet) {
   packet[10]= ~crc_reg; // write use CRC
 }
 
+//Send AINET packet
+void sendAiPacket(byte * packet){
+  //SOF
+  digitalWrite(AINET, HIGH);
+  delayMicroseconds(30);
+  digitalWrite(AINET, LOW);
+  delayMicroseconds(14);
+  for (i=0;i<11;i++) {
+    for (j=0;j<8;j++) {
+      type=(packet[i] & (1 << (7-j))) >> (7-j);
+      if (type==0) {
+        digitalWrite(AINET, HIGH);
+        delayMicroseconds(14);
+        digitalWrite(AINET, LOW);
+        delayMicroseconds(6);
+      } else {
+        digitalWrite(AINET, HIGH);
+        delayMicroseconds(6);
+        digitalWrite(AINET, LOW);
+        delayMicroseconds(13);
+      }
+    }
+  }
+}
+
+//ISR for AINET with auto ack reply
+void ISR_read(){
+  t0 = micros();
+  //detect rising or falling
+  if (digitalRead(2)){
+    t1 = micros();
+  }
+  else {
+    //falling
+    if (t0 -t1 < 8 ){// logical 1
+      ainetbuffer[byteindex] |= 1 << (7-bitindex);
+      if (++bitindex > 7) {
+        bitindex=0;
+        byteindex++;
+      }
+    }
+    else if (t0 -t1 < 16){// logical 0
+      ainetbuffer[byteindex]&=~(1 << (7-bitindex));
+      if (++bitindex > 7) {
+        bitindex=0;
+        byteindex++;
+      }
+    }
+    else { 
+      byteindex = 0;
+      bitindex = 0;
+    }
+    //we recieve packet without an ack
+    if ((byteindex==12) && (bitindex==0)) {
+      byteindex=0;
+      bitindex=0;
+    }
+    if ((byteindex==11) && (bitindex==0)){
+      if (ainetbuffer[0] == 0x02){
+        //maybe time to send ack
+        delayMicroseconds(33); 
+        for (j=0;j<8;j++) {
+          type=(ainetbuffer[0] & (1 << (7-j))) >> (7-j);
+          if (type==0) {
+            digitalWrite(AINET, HIGH);
+            delayMicroseconds(14);
+            digitalWrite(AINET, LOW);
+            delayMicroseconds(6);
+          } else {
+            digitalWrite(AINET, HIGH);
+            delayMicroseconds(6);
+            digitalWrite(AINET, LOW);
+            delayMicroseconds(13);
+          }
+        }   
+      }
+    }
+  }
+}
+
+//All new added ainet stuff and functions must be upper this line.
+//End of simple AINET Stuff
+
+//CAN and ANDROID stuff
+etl::vector<int,MAX_SIZE_VECTOR> getV(int *array, int len){
+  return etl::vector<int ,MAX_SIZE_VECTOR>(array, array+len);
+}
 
 
 void fill_can_commands(){
@@ -116,79 +144,103 @@ void fill_can_commands(){
   can_commands[VolumeUp]    = (CAN_COMMAND){2,0x21f,3,{8,0,0,0,0,0,0,0},0,0};  //vUp
   can_commands[VolumeDown]  = (CAN_COMMAND){2,0x21f,3,{4,0,0,0,0,0,0,0},0,0};  //vDown
   can_commands[Source]      = (CAN_COMMAND){2,0x21f,3,{2,0,0,0,0,0,0,0},0,0};  //src
-  
+}
+
+void fill_android_commands(){
   //fill android_commands
-  byte cmd[8] = {0,0,0,0,0,0,0,0};
-  byte android_cmd[4] = {magic_byte,0,0,0};
+  //format is easy and not easy at the same time
+  //cmd is an array with cmd[0] - CanID
+  //and cmd[1] - cmd[8] - decoded can data
+  //all this is converted to vector type to enable fast == operation
+
+  //android_cmd is [4] array with [0] as magic_byte
+  //and [1] as code and [2] and [3] as crc 
+  //hope we did not need more than 255 codes for android cmd
+  //also as i recall android_cmd must be convertable to byte
+  
+   
+  int cmd[9] = {0,0,0,0,0,0,0,0,0};
+  int android_cmd[4] = {magic_byte,0,0,0};
   short crc;
   //Forward
-  cmd[0] = 128;
+  cmd[0] = 0x21F;
+  cmd[1] = 128;
   crc = magic_byte + Forward;
   android_cmd[1] = Forward;
   android_cmd[2] = (crc>> 8) & 0xff;
   android_cmd[3] = crc& 0xff;
-  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  android_commands[getV(cmd,9)] = getV(android_cmd,4);
   
   //Backward
-  cmd[0] = 64;
+  cmd[0] = 0x21F;
+  cmd[1] = 64;
   crc = magic_byte + Backward;
   android_cmd[1] = Backward;
   android_cmd[2] = (crc>> 8) & 0xff;
   android_cmd[3] = crc& 0xff;
-  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  android_commands[getV(cmd,9)] = getV(android_cmd,4);
   
   //VolumeUp
-  cmd[0] = 8;
+  cmd[0] = 0x21F;
+  cmd[1] = 8;
   crc = magic_byte + VolumeUp;
   android_cmd[1] = VolumeUp;
   android_cmd[2] = (crc>> 8) & 0xff;
   android_cmd[3] = crc& 0xff;
-  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  android_commands[getV(cmd,9)] = getV(android_cmd,4);
   
   //VolumeDown
-  cmd[0] = 4;
+  cmd[0] = 0x21F;
+  cmd[1] = 4;
   crc = magic_byte + VolumeDown;
   android_cmd[1] = VolumeDown;
   android_cmd[2] = (crc>> 8) & 0xff;
   android_cmd[3] = crc& 0xff;
-  android_commands[getV(cmd,8)] = getV(android_cmd,4);
+  android_commands[getV(cmd,9)] = getV(android_cmd,4);
   
   //Source
-  cmd[0] = 2;
+  cmd[0] = 0x21F;
+  cmd[1] = 2;
   crc = magic_byte + Source;
   android_cmd[1] = Source;
   android_cmd[2] = (crc>> 8) & 0xff;
   android_cmd[3] = crc& 0xff;
-  android_commands[getV(cmd,8)] = getV(android_cmd,4);
-  
-  
+  android_commands[getV(cmd,9)] = getV(android_cmd,4);
 }
+
 
 void readCanCmd(){
   unsigned char len = 0;
   unsigned char buf[8]; 
-  //Serial1.println("in read can cmd");
-  if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
-    {
-        CAN.readMsgBuf(&len, buf); 
-        for (int i = len; i< 8; i++){
-          buf[i] = 0;
-        }
-        Serial1.println("in can receive");
-        std::vector<byte> key = getV(buf, 8);
-        if (android_commands.find(key) != android_commands.end()){
-          
-          std::vector<byte> android_cmd = android_commands[key];
-          byte*  cmd_buf = &android_cmd[0];
-          for (int i = 0; i < 4; i ++){
-          Serial1.print(cmd_buf[i]);
-          }
-          Serial.write(cmd_buf,4);
-        }
+  int cmd[9];
+  if(CAN_MSGAVAIL == CAN.checkReceive()){
+    CAN.readMsgBuf(&len, buf); 
+    for (int i = len; i< 8; i++){
+      buf[i] = 0;
     }
+    unsigned char canId = CAN.getCanId();
+    cmd[0] = (int) canId;
+    for (int i=0; i<8; i++){
+      cmd[i+1] = buf[i];
+    }
+
+    etl::vector<int,MAX_SIZE_VECTOR> key = getV(cmd, 9);
+    if (android_commands.find(key) != android_commands.end()){
+      etl::vector<int,MAX_SIZE_VECTOR> android_cmd = android_commands[key];
+      byte cmd_buf[4];
+      for (int i = 0; i < 4; i++){
+        cmd_buf[i] = (byte) android_cmd[i];
+      }
+      //cos i cannot into templates
+      //byte*  cmd_buf = &android_cmd[0];
+      
+      //for (int i = 0; i < 4; i ++){
+      //  Serial1.print(cmd_buf[i]);
+      //}
+      Serial.write(cmd_buf,4);
+    }
+  }
 }
-
-
 
 void sendCmd(CAN_COMMAND cmd){
   int count = cmd.count;
@@ -246,18 +298,17 @@ void add_can_command(CAN_COMMAND cmd){
     queue.clear();
   }
   /*put CAN_COMMAND in queue*/
-    if (!(std::find(queue.begin(), queue.end(), cmd) != queue.end())){
-      queue.push_back(cmd);
-    }
+  if (!(std::find(queue.begin(), queue.end(), cmd) != queue.end())){
+    queue.push_back(cmd);
+  }
 };
-/*-----------------------------------------------------*/
 
 void dispatcher(){
   /*exec all can_commands in queue;
   if they have delayTime == not 0, 
   then check for execution needed*/
-  for (std::list<CAN_COMMAND>::iterator i_cmd = queue.begin(); i_cmd != queue.end();){
-    std::list<CAN_COMMAND>::iterator b_cmd; //buf iterator
+  for (etl::list<CAN_COMMAND,MAX_SIZE>::iterator i_cmd = queue.begin(); i_cmd != queue.end();){
+    etl::list<CAN_COMMAND,MAX_SIZE>::iterator b_cmd; //buf iterator
     Serial1.println("DEBUG SIZE");
     Serial1.println(queue.size());
     //prepare payload buffer
@@ -290,13 +341,11 @@ void dispatcher(){
   }
 }
 
-/*-----------------------------------------------------*/
 void read_cmd(){
   //Serial1.println("NEW READ 1");
   byte buffer[packet_len];
   CAN_COMMAND cmd;
   buffer[0] = magic_byte;
-
   if (Serial.read() == magic_byte){
     //Serial1.println("NEW READ 2");
     if (Serial.available() >= packet_len-1){
@@ -317,107 +366,19 @@ void read_cmd(){
 }
 
 
+//END OF CAN and ANDROID stuf
 
-
-void read_cmd_old(){
-  //reads all input buffer and finds commands
-  //for each found command constructs and execs 
-  //add_command function.
-  //include HardwareSerial1.cpp to get defined SERIAL_BUFFER_SIZE
-  //which may be 16 or 64 bytes.
-  Serial1.println("DEBUG 1");
-  //concat bfr and aft buffers to check for command
-  if (bfr_bytes + aft_bytes == packet_len){
-    Serial1.println("DEBUG 2");
-    CAN_COMMAND cmd;
-    byte packet[packet_len];
-    for (int i = 0; i< aft_bytes; i++){
-      packet[i] = aft_buffer[i];
-    }
-    for (int i = 0; i< bfr_bytes; i ++){
-      packet[i+aft_bytes] = bfr_buffer[i];
-    }
-    if (create_command(packet,&cmd)!= 0){
-      add_can_command(cmd);
-    }
-  }
-  //clear aft and bfr bytes counts
-  bfr_bytes = aft_bytes = 0; 
-  //read serial buffer, fill bfr and aft if needed
-  //parse for commands
-  byte read_buffer[SERIAL_BUFFER_SIZE];
-  //read buffer untill it does have bytes
-  //or till it lasts 
-  byte number_bytes_read = 0;
-  while (Serial.available() != 0){
-    if (number_bytes_read == SERIAL_BUFFER_SIZE){
-      break;
-    }
-    
-    read_buffer[number_bytes_read] = Serial.read();
-    number_bytes_read++;
-    
-  }
-  Serial1.println("DEBUG 3");
-  //loop through read_buffer
-  //before first magic  byte everythoing goes into 
-  //bfr_buffer. Then time to look for commands.
-  //when we have less bytes than valid packet len, then
-  //everything goes to aft_buffer
-  for (int i = 0; i < number_bytes_read;){
-    Serial1.println("DEBUG 4");
-    //read for the first magic byte
-    if (read_buffer[i] != magic_byte && i < packet_len){
-      Serial1.println("DEBUG 5");
-      //if first encounter of magic byte occurs when
-      //i will be less than packet_len, then ok
-      //seems bfr_buffer may be legit
-      //if not, it does not make sense at all
-      //so we can fuck up bfr_buffer and go on
-      bfr_buffer[i] = read_buffer[i];
-      bfr_bytes++;
-    }
-    else if (number_bytes_read - i < packet_len){
-      Serial1.println("DEBUG 6");
-      //seems it is less bytes in buffer that can be a valid command
-      //so copy them to aft_buffer and update aft_bytes count
-      for (int j = 0; j < number_bytes_read - i; j++){
-        aft_buffer[j] = read_buffer[j+i];
-        aft_bytes++;
-      }
-      //terminate the loop
-      break;
-    }
-    else{
-      Serial1.println("DEBUG 7");
-      //back-up i as magic byte element
-      int magic_i = i;
-      //fast forward i to skip possible command
-      i = i+ packet_len;
-      //read bytes as command
-      CAN_COMMAND cmd;
-      byte packet[packet_len];
-      for (int j = 0; j< packet_len; j++){
-        packet[j] = read_buffer[magic_i+j];
-      }
-      //if it is command - add it to the que
-      if (create_command(packet,&cmd)!= 0){
-        add_can_command(cmd);
-      }
-    }
-  i++;
-  }
-}
 
 
 void setup() {
+  // put your setup code here, to run once:
   Serial1.begin(115200);
   Serial.begin(115200);
   fill_can_commands();
-  pinMode2(AINET, OUTPUT); 
-  pinMode (14, OUTPUT);
-  
-  /*START_INIT:
+  fill_android_commands();
+  pinMode(AINET, OUTPUT); 
+  attachInterrupt(digitalPinToInterrupt(2), ISR_read, CHANGE);
+  START_INIT:
 
     if(CAN_OK == CAN.begin(CAN_125KBPS))                   // init can bus : baudrate = 500k
     {
@@ -429,26 +390,15 @@ void setup() {
         Serial1.println("Init CAN BUS Shield again");
         delay(100);
         goto START_INIT;
-    }*/
-    
+    }
 
 }
 
 void loop() {
-  Serial1.println("New Loop starts here \n");
-  //read_cmd();
-  //readCanCmd();
+  // put your main code here, to run repeatedly:
+  read_cmd();
+  readCanCmd();
   Serial1.println(queue.size());
   Serial1.println("dispatcher starts");
-  //dispatcher();
-  Serial1.println("dispatcher ends");
-  Serial1.println("New Loop ends here \n");
-  delay(100);
-  digitalWrite(14, HIGH);
-  noInterrupts();
-  volUp();
-  interrupts();
-  delay(100);
-  digitalWrite(14, LOW);
-  
+  dispatcher();
 }

@@ -1,31 +1,30 @@
 struct CAN_COMMAND {
   short count;
   short address;
-  short bytes;
-  short payload[8];
+  byte bytes;
+  byte payload[8];
   unsigned long putInTime;
   int delayTime;
   
-  bool operator==(const CAN_COMMAND& a) const
-    {
-      bool payload_chk = false;
-      int equal_count = 0;
-      for (int i = 0; i < 8; i++){
-       if (payload[i] == a.payload[i]){
-         equal_count++;
-       }
+  bool operator==(const CAN_COMMAND& a) const{
+    bool payload_chk = false;
+    int equal_count = 0;
+    for (int i = 0; i < 8; i++){
+      if (payload[i] == a.payload[i]){
+        equal_count++;
       }
-      if (equal_count == 8){
-        payload_chk = true;
-      }
-      return (count == a.count && 
-        address == a.address &&
-        payload_chk
-        );
     }
-    
+    if (equal_count == 8){
+      payload_chk = true;
+    }
+    return (count == a.count && 
+      address == a.address &&
+      payload_chk
+    );
+  }  
 };
 
+//some constants
 const byte packet_len = 15;
 const byte magic_byte = 113;
 const byte cmd_len = 8; 
@@ -47,7 +46,6 @@ const byte VolumeUp = 102;
 const byte VolumeDown = 103;
 const byte Source = 104;
 
-const byte VOL_LEN=36;
 
 
 
