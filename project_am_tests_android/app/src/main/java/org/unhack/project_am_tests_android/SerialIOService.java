@@ -24,6 +24,7 @@ import java.util.Iterator;
 public class SerialIOService extends Service {
     private int ONGOING_NOTIFICATION_ID = 1;
     public int ArduinoId = 9025;
+    public int ProlificId = 1659;
     public UsbManager manager = null;
     public HashMap<String, UsbDevice> availableDrivers;
     public UsbDevice mUsbDevice;
@@ -35,6 +36,7 @@ public class SerialIOService extends Service {
 
     public UsbSerialPort init_port (UsbDevice mUsbDevice) {
         mUsbSerialDevice = UsbSerialProber.getDefaultProber().probeDevice(mUsbDevice);
+        Log.d("AM PORTS!!!!",mUsbSerialDevice.getPorts().toString());
         UsbSerialPort port = mUsbSerialDevice.getPorts().get(0);
         connection = manager.openDevice(mUsbDevice);
         try {
@@ -62,9 +64,19 @@ public class SerialIOService extends Service {
         Log.d("AM TESTST SERVICE","In SELECT PORT");
         if (availableDrivers != null) {
             Iterator<UsbDevice> deviceIterator = availableDrivers.values().iterator();
+            /*while (deviceIterator.hasNext()) {
+                UsbDevice device = deviceIterator.next();
+                Log.d("AMDEVICE",device.getDeviceName());
+                Log.d("AMDEVICEID",String.valueOf( device.getVendorId()));
+                Log.d("AMDEVICEPORT",UsbSerialProber.getDefaultProber().probeDevice(device).getPorts().toString());
+
+            }*/
+
+
+
             while (deviceIterator.hasNext()) {
                 UsbDevice device = deviceIterator.next();
-                if (device.getVendorId() == ArduinoId) {
+                if (device.getVendorId() == ArduinoId || device.getVendorId()  == ProlificId || device.getVendorId() == 8963 ) {
                     mUsbDevice = device;
                     break;
                 }
@@ -131,6 +143,7 @@ public class SerialIOService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId){
         Log.d("AM TESTST SERVICE","In onStart");
+
         String inCmd = intent.getStringExtra("INCMD");
         if (mThread != null) {
             mThread.setInCmd(inCmd);
