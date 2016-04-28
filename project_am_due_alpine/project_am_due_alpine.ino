@@ -1,3 +1,7 @@
+#include <DueFlashStorage.h>
+#include <flash_efc.h>
+#include <efc.h>
+
 #include <list.h>
 #include <algorithm.h>
 #include <map.h>
@@ -7,6 +11,7 @@
 #include "commands.h"
 #include "declarations.h"
 
+DueFlashStorage dueFlashStorage;
 MCP_CAN CAN(10); 
 etl::list<CAN_COMMAND, MAX_SIZE> queue;
 etl::map<byte,CAN_COMMAND,MAX_SIZE> can_commands;
@@ -35,6 +40,7 @@ void crc(uint8_t *packet) {
 
 //Send AINET packet
 void sendAiPacket(byte * packet){
+   noInterrupts();
   //SOF
   digitalWrite(AINET, HIGH);
   delayMicroseconds(30);
@@ -56,13 +62,14 @@ void sendAiPacket(byte * packet){
       }
     }
   }
+  interrupts();
 }
 
 //ISR for AINET with auto ack reply
 void ISR_read(){
   t0 = micros();
   //detect rising or falling
-  if (digitalRead(2)){
+  if (digitalRead(3)){
     t1 = micros();
   }
   else {
@@ -93,7 +100,7 @@ void ISR_read(){
     if ((byteindex==11) && (bitindex==0)){
       if (ainetbuffer[0] == 0x02){
         //maybe time to send ack
-        delayMicroseconds(33); 
+        delayMicroseconds(30); 
         for (j=0;j<8;j++) {
           type=(ainetbuffer[0] & (1 << (7-j))) >> (7-j);
           if (type==0) {
@@ -103,7 +110,7 @@ void ISR_read(){
             delayMicroseconds(6);
           } else {
             digitalWrite(AINET, HIGH);
-            delayMicroseconds(6);
+            delayMicroseconds(5);
             digitalWrite(AINET, LOW);
             delayMicroseconds(13);
           }
@@ -115,6 +122,47 @@ void ISR_read(){
 
 //All new added ainet stuff and functions must be upper this line.
 //End of simple AINET Stuff
+
+
+//Volume control part
+//couple of functions:
+//to store and restore volume level
+//to set volume level
+void store_vol(uint8_t vol_value){
+  dueFlashStorage.write(0,vol_value);
+}
+
+void set_vol(uint8_t vol_value){
+  ainet_commands[7][3] = vol[vol_value];
+  crc(ainet_commands[7]);
+  sendAiPacket(ainet_commands[7]);
+}
+
+void restore_vol(){
+    vol_value = dueFlashStorage.read(0);
+    set_vol(vol_value);
+}
+
+void dec_vol(){
+  if (vol_value <36){
+    vol_value++;
+  }
+  store_vol(vol_value);
+  set_vol(vol_value);
+  Serial1.println("dec vol");
+}
+
+void inc_vol(){
+  if (vol_value > 0){
+    vol_value--;
+  }
+  store_vol(vol_value);
+  set_vol(vol_value);
+  Serial1.println("inc vol");
+}
+//END OF Volume control part
+
+
 
 //CAN and ANDROID stuff
 etl::vector<int,MAX_SIZE_VECTOR> getV(int *array, int len){
@@ -156,7 +204,6 @@ void fill_android_commands(){
   //and [1] as code and [2] and [3] as crc 
   //hope we did not need more than 255 codes for android cmd
   //also as i recall android_cmd must be convertable to byte
-  
    
   int cmd[9] = {0};
   int android_cmd[4] = {magic_byte,0,0,0};
@@ -211,32 +258,48 @@ void fill_android_commands(){
 void readCanCmd(){
   unsigned char len = 0;
   unsigned char buf[8]; 
+  int canId;
   int cmd[9];
   if(CAN_MSGAVAIL == CAN.checkReceive()){
+    canId = (int) CAN.getCanId();
     CAN.readMsgBuf(&len, buf); 
     for (int i = len; i< 8; i++){
       buf[i] = 0;
     }
-    unsigned char canId = CAN.getCanId();
+    
+    Serial1.println(canId, HEX);
+    
     cmd[0] = (int) canId;
     for (int i=0; i<8; i++){
-      cmd[i+1] = buf[i];
+      cmd[i+1] =  buf[i];
     }
-
+    
+    for (int i = 0; i < 9; i++){
+      Serial1.print(cmd[i]);
+    }
+    
     etl::vector<int,MAX_SIZE_VECTOR> key = getV(cmd, 9);
+    
     if (android_commands.find(key) != android_commands.end()){
       etl::vector<int,MAX_SIZE_VECTOR> android_cmd = android_commands[key];
+      
       byte cmd_buf[4];
       for (int i = 0; i < 4; i++){
         cmd_buf[i] = (byte) android_cmd[i];
       }
-      //cos i cannot into templates
-      //byte*  cmd_buf = &android_cmd[0];
       
-      //for (int i = 0; i < 4; i ++){
-      //  Serial1.print(cmd_buf[i]);
-      //}
-      Serial.write(cmd_buf,4);
+      //move volume control from android to arduino
+      //probably this should be moved before loading command from map
+      //but why not ?
+      if (cmd_buf[1] == VolumeUp){
+        inc_vol();
+      }
+      else if (cmd_buf[1] == VolumeDown){
+        dec_vol();
+      }
+      else{
+        Serial.write(cmd_buf,4);
+      }
     }
   }
 }
@@ -369,6 +432,9 @@ void read_cmd(){
 
 
 
+
+
+
 void setup() {
   // put your setup code here, to run once:
   Serial1.begin(115200);
@@ -376,10 +442,11 @@ void setup() {
   fill_can_commands();
   fill_android_commands();
   pinMode(AINET, OUTPUT); 
-  attachInterrupt(digitalPinToInterrupt(2), ISR_read, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(3), ISR_read, CHANGE);
+  vol_value = 0;
   START_INIT:
 
-    if(CAN_OK == CAN.begin(CAN_125KBPS))                   // init can bus : baudrate = 500k
+    if(CAN_OK == CAN.begin(CAN_125KBPS))                   
     {
         Serial1.println("CAN BUS Shield init ok!");
     }
@@ -401,5 +468,11 @@ void loop() {
   Serial1.println("dispatcher starts");
   dispatcher();
   Serial1.println("dispatcher ends");
-  delay(100);
+  for (int i = 0; i< 13; i++){
+    Serial.print(ainetbuffer[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+  set_vol(7);
+  delay(1000);
 }
