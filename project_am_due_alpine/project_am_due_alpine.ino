@@ -10,6 +10,9 @@
 #include <SPI.h>
 #include "commands.h"
 #include "declarations.h"
+int deltaT;
+const byte d1 = 20;
+const byte d2 = 15;
 
 DueFlashStorage dueFlashStorage;
 MCP_CAN CAN(10); 
@@ -43,22 +46,22 @@ void sendAiPacket(byte * packet){
    noInterrupts();
   //SOF
   digitalWrite(AINET, HIGH);
-  delayMicroseconds(30);
+  delayMicroseconds(27);
   digitalWrite(AINET, LOW);
-  delayMicroseconds(14);
+  delayMicroseconds(16);
   for (i=0;i<11;i++) {
     for (j=0;j<8;j++) {
       type=(packet[i] & (1 << (7-j))) >> (7-j);
       if (type==0) {
         digitalWrite(AINET, HIGH);
-        delayMicroseconds(14);
+        delayMicroseconds(11);
         digitalWrite(AINET, LOW);
-        delayMicroseconds(6);
+        delayMicroseconds(7);
       } else {
         digitalWrite(AINET, HIGH);
-        delayMicroseconds(6);
+        delayMicroseconds(3);
         digitalWrite(AINET, LOW);
-        delayMicroseconds(13);
+        delayMicroseconds(15);
       }
     }
   }
@@ -74,14 +77,15 @@ void ISR_read(){
   }
   else {
     //falling
-    if (t0 -t1 < 8 ){// logical 1
+    deltaT = t0-t1;
+    if (deltaT < 8 ){// logical 1
       ainetbuffer[byteindex] |= 1 << (7-bitindex);
       if (++bitindex > 7) {
         bitindex=0;
         byteindex++;
       }
     }
-    else if (t0 -t1 < 16){// logical 0
+    else if (deltaT < 16){// logical 0
       ainetbuffer[byteindex]&=~(1 << (7-bitindex));
       if (++bitindex > 7) {
         bitindex=0;
@@ -93,29 +97,35 @@ void ISR_read(){
       bitindex = 0;
     }
     //we recieve packet without an ack
-    if ((byteindex==12) && (bitindex==0)) {
-      byteindex=0;
-      bitindex=0;
-    }
-    if ((byteindex==11) && (bitindex==0)){
-      if (ainetbuffer[0] == 0x02){
-        //maybe time to send ack
-        delayMicroseconds(30); 
+
+    if ((byteindex==11) && (bitindex==0) && ainetbuffer[0] == 0x02){
+        if ((ainetbuffer[10]&B00000001) == 0){
+          delayMicroseconds(d2);
+        }
+        else {
+          delayMicroseconds(d1);
+        }
         for (j=0;j<8;j++) {
           type=(ainetbuffer[0] & (1 << (7-j))) >> (7-j);
           if (type==0) {
             digitalWrite(AINET, HIGH);
-            delayMicroseconds(14);
+            delayMicroseconds(11);
             digitalWrite(AINET, LOW);
-            delayMicroseconds(6);
+            delayMicroseconds(7);
           } else {
             digitalWrite(AINET, HIGH);
-            delayMicroseconds(5);
+            delayMicroseconds(2);
             digitalWrite(AINET, LOW);
-            delayMicroseconds(13);
+            delayMicroseconds(15);
           }
-        }   
       }
+      byteindex=0;
+      bitindex=0;
+    }
+    
+    if ((byteindex==12) && (bitindex==0)) {
+      byteindex=0;
+      bitindex=0;
     }
   }
 }
@@ -442,6 +452,8 @@ void setup() {
   fill_can_commands();
   fill_android_commands();
   pinMode(AINET, OUTPUT); 
+  pinMode(3, INPUT);
+  pinMode(7, INPUT);
   attachInterrupt(digitalPinToInterrupt(3), ISR_read, CHANGE);
   vol_value = 0;
   START_INIT:
@@ -473,6 +485,18 @@ void loop() {
     Serial.print(" ");
   }
   Serial.println();
-  set_vol(7);
-  delay(1000);
+  /*for (int i = 0; i< 36; i++){
+    set_vol(i);  
+      for (int i = 0; i< 13; i++){
+    Serial.print(ainetbuffer[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+    delay(1000);
+    
+  }*/
+
+  //Serial.println(REG_PIOD_PDSR&B00010000);
+  //set_vol(7);
+  //delay(1000);
 }
