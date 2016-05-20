@@ -20,4 +20,4 @@ Also it is possible to control some Alpine sound proccessors (a little part of c
 key parts:
  - project_am_due_alpine: arduino sktech, which linked car, android and alpine sound processor
  - project_am_tests_android - android app with a service
- - 
+ 
