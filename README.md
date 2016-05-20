@@ -15,7 +15,7 @@ It is couple of arduino sketches and android app. All in very deep alpha stage.
 General purpose is to orgonize connection between vehicle (by vehicle i mean automobile, car or whatever word do you prefer)
 and android device. It means that car must be able to control android (like Play, Pause, FForward music and so on), android must control car media, emulating dashboard buttons and so on.
  
-Also it is possible to control some Alpine sound proccessors (a little part of command send and asck is wotking now, stay tuned).
+Also it is possible to control some Alpine sound proccessors (a little part of command send and ack is wotking now, stay tuned).
 
 key parts:
  - project_am_due_alpine: arduino sktech, which linked car, android and alpine sound processor
