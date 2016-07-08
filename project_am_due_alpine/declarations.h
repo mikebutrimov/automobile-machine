@@ -6,6 +6,7 @@ uint8_t i,j,type;
 byte b;
 boolean vol_restored = false;
 const int AINET_COMMANDS_NUM = 18;
+volatile int start_proc = 0;
 volatile long t0 = 0; // our magic timer
 volatile long t1 = 0; // yet another magic timer
 volatile byte bufferbyte[13],ainetbuffer[13];

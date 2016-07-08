@@ -11,6 +11,7 @@
 #include "commands.h"
 #include "declarations.h"
 int deltaT;
+bool ololo = true;
 const byte d1 = 20;
 const byte d2 = 15;
 
@@ -97,8 +98,7 @@ void ISR_read(){
       bitindex = 0;
     }
     //we recieve packet without an ack
-
-    if ((byteindex==11) && (bitindex==0) && ainetbuffer[0] == 0x02){
+    if ((byteindex==11) && (bitindex==0) && (ainetbuffer[0] == 0x02)){
         if ((ainetbuffer[10]&B00000001) == 0){
           delayMicroseconds(d2);
         }
@@ -122,6 +122,7 @@ void ISR_read(){
       byteindex=0;
       bitindex=0;
     }
+    
     
     if ((byteindex==12) && (bitindex==0)) {
       byteindex=0;
@@ -154,7 +155,7 @@ void restore_vol(){
 }
 
 void dec_vol(){
-  if (vol_value <36){
+  if (vol_value <35){
     vol_value++;
   }
   store_vol(vol_value);

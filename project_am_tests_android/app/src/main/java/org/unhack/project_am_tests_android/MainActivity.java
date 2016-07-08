@@ -121,7 +121,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-
     //onClick listener
     private View.OnClickListener mOnClickListener = new View.OnClickListener() {
         public void onClick(View v) {

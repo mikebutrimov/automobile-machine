@@ -23,7 +23,7 @@ android {
 }
 
 dependencies {
-    compile 'com.github.felHR85:UsbSerial:4.2'
+
     compile fileTree(dir: 'libs', include: ['*.jar'])
 
     testCompile 'junit:junit:4.12'
@@ -31,4 +31,5 @@ dependencies {
     compile 'com.android.support:design:23.3.0'
     compile project(':usbSerialForAndroid')
     compile project(':poweramp_api_lib')
+    compile 'com.github.felHR85:UsbSerial:4.3'
 }
